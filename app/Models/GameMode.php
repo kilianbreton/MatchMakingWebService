@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class GameMode extends Model
 {
-    
+    protected $table = 'gamemodes';
 
     /**
      * The attributes that are mass assignable.

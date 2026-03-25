@@ -10,7 +10,12 @@ class ServerAuthController extends Controller
 {
     public function auth(Request $request)
     {
-
+        if(!$request->has('login') || !$request->has('apikey'))
+        {
+            return response()->json([
+                'message' => 'Missing parameters'
+            ], 400);
+        }
         $credentials = [
             'login' => $request->login,
             'password' => $request->apikey, // 👈 important
