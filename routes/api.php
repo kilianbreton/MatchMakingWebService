@@ -42,7 +42,7 @@ Route::get('/redis-test', function () {
 Route::middleware('auth:server')->group(function () {
 
     Route::put('/players/', [PlayerController::class, 'update']);
-
+   
 });
 
 Route::post('/queue/add', function (Illuminate\Http\Request $request, QueueService $qs) {
@@ -56,13 +56,7 @@ Route::post('/queue/add', function (Illuminate\Http\Request $request, QueueServi
         ], 400);
     }
 
-    $ok = $qs->addPlayer($queue, $player);
-
-    return response()->json([
-        'status' => $ok ? 'ok' : 'already_in_queue',
-        'queue' => $queue,
-        'player' => $player
-    ]);
+    return $qs->addPlayer($queue, $player);
 });
 
 Route::post('/queue/remove', function (Illuminate\Http\Request $request, QueueService $qs) {
@@ -76,11 +70,7 @@ Route::post('/queue/remove', function (Illuminate\Http\Request $request, QueueSe
         ], 400);
     }
 
-    $qs->removePlayer($queue, $player);
+    return $qs->removePlayer($queue, $player);
 
-    return response()->json([
-        'status' => 'ok',
-        'queue' => $queue,
-        'player' => $player
-    ]);
+    
 });

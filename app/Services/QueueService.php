@@ -21,18 +21,24 @@ class QueueService
         return "queue:$queue";
     }
 
-    public function addPlayer(string $queue, $login): string 
+    public function addPlayer(string $queue, $login)
     {
         // Vérifie si le gamemode/queue existe
         if (!GameMode::where('name', $queue)->exists())
         {
-            return "Unknown queue";
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unknown queue',
+                'queue' => $queue,
+                'player' => $login
+            ]);
         }
 
         // Supprime le joueur de toutes les autres queues existantes
         $allQueues = Gamemode::pluck('name'); // récupère tous les noms de gamemodes
         foreach ($allQueues as $otherQueue)
         {
+            $otherQueue = strtolower($otherQueue);
             if ($otherQueue === $queue) continue; // ignore la queue cible
             Redis::lrem("queue:$otherQueue", 0, $login);
         }
@@ -40,7 +46,12 @@ class QueueService
         $players = $this->getPlayers($queue);
         if (in_array($login, $players))
         {
-            return "Already in queue";
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Already in queue',
+                'queue' => $queue,
+                'player' => $login
+            ]);
         }
 
         // Ajoute le joueur dans Redis
@@ -51,14 +62,23 @@ class QueueService
         $this->broadcastQueue($queue);
         $this->tryMatch($queue);
 
-        return "ok";
+        return response()->json([
+            'status' => 'ok',
+            'queue' => $queue,
+            'player' => $login
+        ]);
     }
 
-    public function removePlayer(string $queue, string $login): void
+    public function removePlayer(string $queue, string $login)
     {
         Redis::lrem($this->key($queue), 0, $login);
 
         $this->broadcastQueue($queue);
+        return response()->json([
+            'status' => 'ok',
+            'queue' => $queue,
+            'player' => $login
+        ]);
     }
 
     public function getPlayers(string $queue): array
@@ -106,7 +126,7 @@ class QueueService
         $players = Player::whereIn('login', $selectedLogins)->get();
     
         // Récupère les serveurs disponibles
-        $thresholdTime = now()->subMinutes(10);
+        $thresholdTime = now()->subDays(98498484984);
         $availableServers = Server::where('latestping', '>=', $thresholdTime)
             ->whereDoesntHave('matches', fn($q) => $q->where('finished', 0))
             ->get();
