@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Map;
 use App\Models\Matche;
 use App\Models\Server;
 use App\Models\Statistic;
@@ -13,6 +14,50 @@ class MatchMakingMatchController extends Controller
     {
         $serverlogin = $request->input('serverlogin');
     }
+
+
+    public function setMap(Request $request)
+    {
+        $matchId = $request->input('MatchId');
+        $map = $request->input('Map');
+    
+        $match = Matche::findOrFail($matchId);
+    
+        $uid = $map['uid'];
+    
+        /*
+         * UPSERT MAP (ultra rapide)
+         */
+        Map::upsert([
+            [
+                'uid' => $uid,
+                'mxid' => $map['mxid'] ?? null,
+                'name' => $map['name'] ?? $uid,
+                'author' => $map['author'] ?? null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        ], ['uid'], [
+            'mxid',
+            'name',
+            'author',
+            'updated_at'
+        ]);
+    
+        /*
+         * UPDATE MATCH
+         */
+        $match->update([
+            'mapuid' => $uid
+        ]);
+    
+        return response()->json([
+            'status' => 'ok',
+            'match' => $matchId,
+            'map' => $uid
+        ]);
+    }
+
 
     public function liveMatch(Request $request)
     {

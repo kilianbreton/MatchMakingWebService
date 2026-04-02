@@ -16,6 +16,11 @@ class Statistic extends Model
         'value',
     ];
 
+    public function type()
+    {
+        return $this->belongsTo(StatInfo::class, 'type');
+    }
+
     public function player()
     {
         return $this->belongsTo(Player::class, 'playerid');

@@ -23,12 +23,10 @@ class Matche extends Model
         'finished',
     ];
 
-
     public function players()
     {
-        return $this->belongsToMany(Player::class, 'matchplayers')
-            ->withPivot('team', 'playorder', 'missing', 'replaced')
-            ->withTimestamps();
+        return $this->belongsToMany(Player::class, 'matchplayers', 'matchid', 'playerid')
+            ->withPivot('team', 'playorder', 'missing', 'replaced');
     }
 
     public function playersA()

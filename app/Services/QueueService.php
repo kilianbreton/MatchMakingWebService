@@ -8,20 +8,18 @@ use App\Events\MatchStarted;
 use App\Models\GameMode;
 use App\Models\Match;
 use App\Models\Matche;
+use App\Models\MatchPlayer;
 use App\Models\Player;
 use App\Models\Server;
 
 class QueueService
 {
-
-
-
     private function key(string $queue): string
     {
         return "queue:$queue";
     }
 
-    public function addPlayer(string $queue, $login)
+    public function addPlayer(string $queue, string $login, string $nickname = "")
     {
         // Vérifie si le gamemode/queue existe
         if (!GameMode::where('name', $queue)->exists())
@@ -33,6 +31,15 @@ class QueueService
                 'player' => $login
             ]);
         }
+
+        // UPSERT player (create ou update nickname)
+        Player::updateOrCreate(
+            ['login' => $login],
+            [
+                'name' => $nickname ?: $login,
+                'updated_at' => now()
+            ]
+        );
 
         // Supprime le joueur de toutes les autres queues existantes
         $allQueues = Gamemode::pluck('name'); // récupère tous les noms de gamemodes
@@ -57,7 +64,7 @@ class QueueService
         // Ajoute le joueur dans Redis
         Redis::rpush("queue:$queue", $login);
 
- 
+
 
         $this->broadcastQueue($queue);
         $this->tryMatch($queue);
@@ -99,21 +106,22 @@ class QueueService
         // Vérifie que la queue existe
         $gamemode = Gamemode::where('name', $queue)->first();
         if (!$gamemode) return;
-    
+
         // Récupère les joueurs en queue
         $playersLogins = $this->getPlayers($queue);
         if (empty($playersLogins)) return;
-    
+
         // Détermine le nombre de joueurs requis pour ce gamemode
         $requiredPlayers = 2; //TODO: get from gamemode
         if (count($playersLogins) < $requiredPlayers) return;
-    
+
         // Sélectionne les joueurs nécessaires et les retire de Redis
         $selectedLogins = array_slice($playersLogins, 0, $requiredPlayers);
-        foreach ($selectedLogins as $login) {
+        foreach ($selectedLogins as $login)
+        {
             Redis::lrem("queue:$queue", 0, $login);
         }
-    
+
         // Upsert players dans MySQL
         $users = collect($selectedLogins)->map(fn($login) => [
             'login' => $login,
@@ -121,34 +129,38 @@ class QueueService
             'created_at' => now()
         ])->toArray();
         Player::upsert($users, ['login'], ['updated_at']);
-    
+
         // Récupère les modèles Player
         $players = Player::whereIn('login', $selectedLogins)->get();
-    
+
         // Récupère les serveurs disponibles
         $thresholdTime = now()->subDays(98498484984);
         $availableServers = Server::where('latestping', '>=', $thresholdTime)
             ->whereDoesntHave('matches', fn($q) => $q->where('finished', 0))
             ->get();
-        if ($availableServers->isEmpty()) {
+        if ($availableServers->isEmpty())
+        {
             // Remet les joueurs en queue si pas de serveur
-            foreach ($selectedLogins as $login) {
+            foreach ($selectedLogins as $login)
+            {
                 Redis::rpush("queue:$queue", $login);
             }
             return;
         }
-    
+
         // Balance match par rank
         $teamA = [];
         $teamB = [];
-        if (!$this->balanceMatch($players->getDictionary(), $requiredPlayers, $teamA, $teamB)) {
+        if (!$this->balanceMatch($players->getDictionary(), $requiredPlayers, $teamA, $teamB))
+        {
             // Remet les joueurs en queue si on ne peut pas équilibrer
-            foreach ($selectedLogins as $login) {
+            foreach ($selectedLogins as $login)
+            {
                 Redis::rpush("queue:$queue", $login);
             }
             return;
         }
-    
+
         // Crée le match
         $server = $availableServers->first();
         $match = Matche::create([
@@ -158,38 +170,47 @@ class QueueService
             'mapuid'     => 'Undefined',
             'finished'   => 0,
         ]);
-    
+
         // Assigne les joueurs aux équipes
-        foreach ($teamA as $idx => $player) {
-            $match->players()->create([
+        $cpt = 0;
+        foreach ($teamA as $player)
+        {
+            MatchPlayer::create([
+                'matchid' => $match->id,
                 'playerid' => $player->id,
                 'team' => 1,
-                'playorder' => $idx,
+                'playorder' => ++$cpt,
+                'missing' => 0,
+                'replaced' => 0
             ]);
         }
-        foreach ($teamB as $idx => $player) {
-            $match->players()->create([
+        $cpt = 0;
+        foreach ($teamB as $idx => $player)
+        {
+            MatchPlayer::create([
+                'matchid' => $match->id,
                 'playerid' => $player->id,
                 'team' => 2,
-                'playorder' => $idx,
+                'playorder' => ++$cpt,
+                'missing' => 0,
+                'replaced' => 0
             ]);
         }
-    
+
         // Broadcast MatchStarted
         broadcast(new MatchStarted([
             'queue' => $queue,
             'players' => $selectedLogins,
             'matchId' => $match->id
         ]));
-    
+
         // Broadcast QueueUpdated
         $this->broadcastQueue($queue);
     }
 
-    
+
     private function balanceMatch($players, $requiredPlayers, &$teamA, &$teamB)
     {
-      
         $bestDiff = PHP_INT_MAX;
         $bestTeamA = [];
         $bestTeamB = [];
