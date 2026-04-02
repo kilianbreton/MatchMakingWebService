@@ -31,20 +31,18 @@ class Matche extends Model
 
     public function playersA()
     {
-        return $this->belongsToMany(Player::class, 'matchplayers')
+        return $this->belongsToMany(Player::class, 'matchplayers', 'matchid', 'playerid')
             ->withPivot('team', 'playorder', 'missing', 'replaced')
-            ->withTimestamps()
-            ->wherePivot('team', '=', 0);
+            ->wherePivot('team', 1);
     }
-
+    
     public function playersB()
     {
-        return $this->belongsToMany(Player::class, 'matchplayers')
+        return $this->belongsToMany(Player::class, 'matchplayers', 'matchid', 'playerid')
             ->withPivot('team', 'playorder', 'missing', 'replaced')
-            ->withTimestamps()
-            ->wherePivot('team', '=', 1);
+            ->wherePivot('team', 2);
     }
-
+    
 
     public function server()
     {
