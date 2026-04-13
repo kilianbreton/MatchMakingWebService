@@ -206,3 +206,23 @@ body {
         text-align: center;
     }
 }
+.nav-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59,130,246,0.4);
+}
+
+/* User */
+
+.nav-user {
+    background: rgba(255,255,255,0.05);
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: #e8eefc;
+    font-weight: 600;
+    text-decoration: none;
+    transition: 0.2s;
+}
+
+.nav-user:hover {
+    background: rgba(255,255,255,0.1);
+}

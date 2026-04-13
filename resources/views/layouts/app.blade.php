@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="{{ asset('css/matches.css') }}">
 </head>
 <body>
+
+    @include('partials.navbar')
+
     <div class="site-wrapper">
         @yield('content')
     </div>

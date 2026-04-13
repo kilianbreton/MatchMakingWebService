@@ -27,6 +27,13 @@ return [
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
+    'maniaplanet' => [
+        'client_id' => env('MANIAPLANET_CLIENT_ID'),
+        'client_secret' => env('MANIAPLANET_CLIENT_SECRET'),
+        'redirect' => env('MANIAPLANET_REDIRECT_URI'),
+        'authorize_url' => 'https://prod.live.maniaplanet.com/login/oauth2/authorize',
+        'token_url' => 'https://prod.live.maniaplanet.com/login/oauth2/access_token',
+    ],
 
     'slack' => [
         'notifications' => [
