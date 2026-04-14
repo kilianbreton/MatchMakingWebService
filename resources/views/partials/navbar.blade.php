@@ -7,9 +7,24 @@
 
     <div class="navbar-right">
         @auth
-            <a href="/profile" class="nav-user">
-                {{ auth()->user()->name ?? auth()->user()->login }}
+        <div class="nav-dropdown" id="userDropdown">
+            @php
+                $nickname = auth()->user()->name ?? auth()->user()->login;
+                $nickname = App\Services\TmNick::toHtml($nickname);
+            @endphp
+            <a class="nav-button nav-user-btn" id="dropdownToggle">
+                {!! $nickname !!}
             </a>
+        
+            <div class="dropdown-menu" id="dropdownMenu">
+                <a href="/profile">Profile</a>
+        
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit">Logout</button>
+                </form>
+            </div>
+        </div>
         @else
             <a href="{{ route('maniaplanet.redirect') }}" class="nav-button">
                 Connection
@@ -17,3 +32,26 @@
         @endauth
     </div>
 </nav>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const toggle = document.getElementById('dropdownToggle');
+        const menu = document.getElementById('dropdownMenu');
+    
+        if (!toggle || !menu) return;
+    
+        toggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            menu.classList.toggle('show');
+        });
+    
+        // Ferme si clic ailleurs
+        document.addEventListener('click', function () {
+            menu.classList.remove('show');
+        });
+    
+        // Empêche fermeture si clic dans le menu
+        menu.addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+    });
+    </script>

@@ -11,7 +11,18 @@
     @include('partials.navbar')
 
     <div class="site-wrapper">
-        @yield('content')
+        <div class="site-wrapper">
+            @if(session('success'))
+                <div class="flash-success">{{ session('success') }}</div>
+            @endif
+        
+            @if(session('error'))
+                <div class="profile-error">{{ session('error') }}</div>
+            @endif
+        
+            @yield('content')
+        </div>
+       
     </div>
 </body>
 </html>

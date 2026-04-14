@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="page-header">
-        <h1>Matchs en cours</h1>
+        <h1>Running matches</h1>
     </div>
 
     <div class="matches-list">
@@ -12,7 +12,7 @@
             @include('matches._match-card', ['match' => $match])
         @empty
             <div class="empty-state">
-                Aucun match en cours.
+                No running matches
             </div>
         @endforelse
     </div>

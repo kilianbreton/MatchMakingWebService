@@ -18,7 +18,7 @@ class ManiaplanetAuthController extends Controller
             'response_type' => 'code',
             'client_id' => config('services.maniaplanet.client_id'),
             'redirect_uri' => config('services.maniaplanet.redirect'),
-            'scope' => 'basic',
+            'scope' => 'basic dedicated',
             'state' => $state,
         ]);
 
