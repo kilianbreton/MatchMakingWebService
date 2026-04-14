@@ -3,34 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\GameMode;
-use Illuminate\Support\Facades\Redis;
+use App\Services\QueueService;
 
 class QueuePageController extends Controller
 {
-    public function index()
+    public function index(QueueService $queueService)
     {
-        $gamemodes = GameMode::orderBy('name')->get();
-
-        $queues = $gamemodes->map(function ($gamemode) {
-            $queueName = strtolower($gamemode->name);
-
-            $orderKey = "queue:{$queueName}:order";
-            $playersKey = "queue:{$queueName}:players";
-
-            $logins = Redis::lrange($orderKey, 0, -1);
-
-            $players = [];
-
-            if (!empty($logins)) {
-                $nicknames = Redis::hmget($playersKey, $logins);
-
-                foreach ($logins as $index => $login) {
-                    $players[] = [
-                        'login' => $login,
-                        'nickname' => $nicknames[$index] ?? $login,
-                    ];
-                }
-            }
+        $queues = GameMode::orderBy('name')->get()->map(function ($gamemode) use ($queueService) {
+            $players = $queueService->getPlayers($gamemode->name);
 
             return [
                 'name' => $gamemode->name,

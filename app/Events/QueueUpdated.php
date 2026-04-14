@@ -13,7 +13,7 @@ class QueueUpdated implements ShouldBroadcastNow
 
     public function __construct($queue, $players)
     {
-        $this->queue = $queue;
+        $this->queue = strtolower($queue);
         $this->players = $players;
     }
 

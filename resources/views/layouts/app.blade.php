@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Shootmania Matchmaking')</title>
     <link rel="stylesheet" href="{{ asset('css/matches.css') }}">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
-
     @include('partials.navbar')
 
     <div class="site-wrapper">
