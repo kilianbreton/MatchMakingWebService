@@ -29,7 +29,11 @@
                             @foreach($queue['players'] as $player)
                                 <div class="queue-player">
                                     <div class="queue-player-name">
-                                        {{ $player['nickname'] ?: $player['login'] }}
+                                        @php
+                                            $nickname = $player['nickname'] ?: $player['login'];
+                                            $nickname = App\Services\TmNick::toHtml($nickname);
+                                        @endphp
+                                        {!! $nickname !!}
                                     </div>
                                     <div class="queue-player-login">
                                         {{ $player['login'] }}

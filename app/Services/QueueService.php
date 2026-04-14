@@ -2,69 +2,109 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Redis;
-use App\Events\QueueUpdated;
 use App\Events\MatchStarted;
+use App\Events\QueueUpdated;
 use App\Models\GameMode;
-use App\Models\Match;
+use App\Models\Map;
 use App\Models\Matche;
 use App\Models\MatchPlayer;
 use App\Models\Player;
 use App\Models\Server;
+use Illuminate\Support\Facades\Redis;
 
 class QueueService
 {
-    private function key(string $queue): string
+    private function normalizeQueue(string $queue): string
     {
-        return "queue:$queue";
+        return strtolower(trim($queue));
     }
 
-    public function addPlayer(string $queue, string $login, string $nickname = "")
+    private function orderKey(string $queue): string
     {
-        // Vérifie si le gamemode/queue existe
-        if (!GameMode::where('name', $queue)->exists())
-        {
+        return 'queue:' . $this->normalizeQueue($queue) . ':order';
+    }
+
+    private function playersKey(string $queue): string
+    {
+        return 'queue:' . $this->normalizeQueue($queue) . ':players';
+    }
+
+    public function addPlayer(string $queue, string $login, string $nickname = '')
+    {
+        $queue = $this->normalizeQueue($queue);
+        $login = trim($login);
+        $nickname = trim($nickname);
+
+        if ($login === '') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Missing login',
+                'queue' => $queue,
+                'player' => $login
+            ], 400);
+        }
+
+        $gamemode = GameMode::whereRaw('LOWER(name) = ?', [$queue])->first();
+
+        if (!$gamemode) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unknown queue',
                 'queue' => $queue,
                 'player' => $login
-            ]);
+            ], 404);
         }
 
-        // UPSERT player (create ou update nickname)
         Player::updateOrCreate(
             ['login' => $login],
             [
-                'name' => $nickname ?: $login,
-                'updated_at' => now()
+                'name' => $nickname !== '' ? $nickname : $login,
+                'updated_at' => now(),
             ]
         );
 
-        // Supprime le joueur de toutes les autres queues existantes
-        $allQueues = Gamemode::pluck('name'); // récupère tous les noms de gamemodes
-        foreach ($allQueues as $otherQueue)
-        {
-            $otherQueue = strtolower($otherQueue);
-            if ($otherQueue === $queue) continue; // ignore la queue cible
-            Redis::lrem("queue:$otherQueue", 0, $login);
-        }
-        // Récupère la liste actuelle depuis Redis
-        $players = $this->getPlayers($queue);
-        if (in_array($login, $players))
-        {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Already in queue',
-                'queue' => $queue,
-                'player' => $login
-            ]);
+        $allQueues = GameMode::pluck('name');
+
+        foreach ($allQueues as $otherQueue) {
+            $otherQueue = $this->normalizeQueue($otherQueue);
+
+            if ($otherQueue === $queue) {
+                continue;
+            }
+
+            $removed = Redis::lrem($this->orderKey($otherQueue), 0, $login);
+            Redis::hdel($this->playersKey($otherQueue), $login);
+
+            if ($removed > 0) {
+                $this->broadcastQueue($otherQueue);
+            }
         }
 
-        // Ajoute le joueur dans Redis
-        Redis::rpush("queue:$queue", $login);
+        $currentPlayers = $this->getPlayers($queue);
+        foreach ($currentPlayers as $player) {
+            if ($player['login'] === $login) {
+                Redis::hset(
+                    $this->playersKey($queue),
+                    $login,
+                    $nickname !== '' ? $nickname : ($player['nickname'] ?: $login)
+                );
 
+                $this->broadcastQueue($queue);
 
+                return response()->json([
+                    'status' => 'already_in_queue',
+                    'queue' => $queue,
+                    'player' => $login
+                ]);
+            }
+        }
+
+        Redis::rpush($this->orderKey($queue), $login);
+        Redis::hset(
+            $this->playersKey($queue),
+            $login,
+            $nickname !== '' ? $nickname : $login
+        );
 
         $this->broadcastQueue($queue);
         $this->tryMatch($queue);
@@ -78,9 +118,16 @@ class QueueService
 
     public function removePlayer(string $queue, string $login)
     {
-        Redis::lrem($this->key($queue), 0, $login);
+        $queue = $this->normalizeQueue($queue);
+        $login = trim($login);
 
-        $this->broadcastQueue($queue);
+        $removed = Redis::lrem($this->orderKey($queue), 0, $login);
+        Redis::hdel($this->playersKey($queue), $login);
+
+        if ($removed > 0) {
+            $this->broadcastQueue($queue);
+        }
+
         return response()->json([
             'status' => 'ok',
             'queue' => $queue,
@@ -90,194 +137,208 @@ class QueueService
 
     public function getPlayers(string $queue): array
     {
-        return Redis::lrange($this->key($queue), 0, -1);
+        $queue = $this->normalizeQueue($queue);
+
+        $logins = Redis::lrange($this->orderKey($queue), 0, -1);
+
+        if (empty($logins)) {
+            return [];
+        }
+
+        $nicknames = Redis::hmget($this->playersKey($queue), $logins);
+
+        $result = [];
+
+        foreach ($logins as $index => $login) {
+            $result[] = [
+                'login' => $login,
+                'nickname' => $nicknames[$index] ?? $login,
+            ];
+        }
+
+        return $result;
     }
 
-    private function broadcastQueue(string $queue)
+    private function broadcastQueue(string $queue): void
     {
+        $queue = $this->normalizeQueue($queue);
+
         broadcast(new QueueUpdated(
             $queue,
             $this->getPlayers($queue)
         ));
     }
 
-    private function tryMatch(string $queue)
+    private function tryMatch(string $queue): void
     {
-        // Vérifie que la queue existe
-        $gamemode = Gamemode::where('name', $queue)->first();
-        if (!$gamemode) return;
+        $queue = $this->normalizeQueue($queue);
 
-        // Récupère les joueurs en queue
-        $playersLogins = $this->getPlayers($queue);
-        if (empty($playersLogins)) return;
-
-        // Détermine le nombre de joueurs requis pour ce gamemode
-        $requiredPlayers = 2; //TODO: get from gamemode
-        if (count($playersLogins) < $requiredPlayers) return;
-
-        // Sélectionne les joueurs nécessaires et les retire de Redis
-        $selectedLogins = array_slice($playersLogins, 0, $requiredPlayers);
-        foreach ($selectedLogins as $login)
-        {
-            Redis::lrem("queue:$queue", 0, $login);
-        }
-
-        // Upsert players dans MySQL
-        $users = collect($selectedLogins)->map(fn($login) => [
-            'login' => $login,
-            'updated_at' => now(),
-            'created_at' => now()
-        ])->toArray();
-        Player::upsert($users, ['login'], ['updated_at']);
-
-        // Récupère les modèles Player
-        $players = Player::whereIn('login', $selectedLogins)->get();
-
-        // Récupère les serveurs disponibles
-        $thresholdTime = now()->subDays(98498484984);
-        $availableServers = Server::where('latestping', '>=', $thresholdTime)
-            ->whereDoesntHave('matches', fn($q) => $q->where('finished', 0))
-            ->get();
-        if ($availableServers->isEmpty())
-        {
-            // Remet les joueurs en queue si pas de serveur
-            foreach ($selectedLogins as $login)
-            {
-                Redis::rpush("queue:$queue", $login);
-            }
+        $gamemode = GameMode::whereRaw('LOWER(name) = ?', [$queue])->first();
+        if (!$gamemode) {
             return;
         }
 
-        // Balance match par rank
+        $players = $this->getPlayers($queue);
+        $requiredPlayers = $this->countRequiredPlayers($gamemode->name);
+
+        if (count($players) < $requiredPlayers) {
+            return;
+        }
+
+        $selectedPlayers = array_slice($players, 0, $requiredPlayers);
+        $selectedLogins = array_column($selectedPlayers, 'login');
+
+        $thresholdTime = now()->subMinutes(10);
+
+        $availableServer = Server::where('gamemode', $gamemode->id)
+            ->where('latestping', '>=', $thresholdTime)
+            ->whereDoesntHave('matches', function ($query) {
+                $query->where('finished', 0);
+            })
+            ->first();
+
+        if (!$availableServer) {
+            return;
+        }
+
+        $playerModels = Player::whereIn('login', $selectedLogins)->get()->keyBy('login');
+
+        if ($playerModels->count() !== count($selectedLogins)) {
+            return;
+        }
+
+        $playersForBalance = [];
+        foreach ($selectedLogins as $login) {
+            $playersForBalance[] = $playerModels[$login];
+        }
+
         $teamA = [];
         $teamB = [];
-        if (!$this->balanceMatch($players->getDictionary(), $requiredPlayers, $teamA, $teamB))
-        {
-            // Remet les joueurs en queue si on ne peut pas équilibrer
-            foreach ($selectedLogins as $login)
-            {
-                Redis::rpush("queue:$queue", $login);
-            }
+
+        if (!$this->balanceMatch($playersForBalance, $requiredPlayers, $teamA, $teamB)) {
             return;
         }
 
-        // Crée le match
-        $server = $availableServers->first();
+        foreach ($selectedLogins as $login) {
+            Redis::lrem($this->orderKey($queue), 0, $login);
+            Redis::hdel($this->playersKey($queue), $login);
+        }
+
         $match = Matche::create([
-            'serverid'   => $server->id,
+            'serverid' => $availableServer->id,
             'gamemodeid' => $gamemode->id,
-            'score'      => '0-0',
-            'mapuid'     => 'Undefined',
-            'finished'   => 0,
+            'score' => '0-0',
+            'mapuid' => 'Undefined',
+            'winner' => null,
+            'finished' => 0,
         ]);
 
-        // Assigne les joueurs aux équipes
-        $cpt = 0;
-        foreach ($teamA as $player)
-        {
+        foreach ($teamA as $idx => $player) {
             MatchPlayer::create([
                 'matchid' => $match->id,
                 'playerid' => $player->id,
                 'team' => 1,
-                'playorder' => ++$cpt,
+                'playorder' => $idx,
                 'missing' => 0,
-                'replaced' => 0
+                'replaced' => 0,
             ]);
         }
-        $cpt = 0;
-        foreach ($teamB as $idx => $player)
-        {
+
+        foreach ($teamB as $idx => $player) {
             MatchPlayer::create([
                 'matchid' => $match->id,
                 'playerid' => $player->id,
                 'team' => 2,
-                'playorder' => ++$cpt,
+                'playorder' => $idx,
                 'missing' => 0,
-                'replaced' => 0
+                'replaced' => 0,
             ]);
         }
 
-        // Broadcast MatchStarted
         broadcast(new MatchStarted([
             'queue' => $queue,
-            'players' => $selectedLogins,
-            'matchId' => $match->id
+            'matchId' => $match->id,
+            'players' => $selectedPlayers,
         ]));
 
-        // Broadcast QueueUpdated
         $this->broadcastQueue($queue);
     }
 
-
-    private function balanceMatch($players, $requiredPlayers, &$teamA, &$teamB)
+    private function countRequiredPlayers(string $gamemodeName): int
     {
+        return match (strtolower($gamemodeName)) {
+            'elite' => 2,
+            'siege' => 4,
+            default => 2,
+        };
+    }
+
+    private function balanceMatch(array $players, int $requiredPlayers, array &$teamA, array &$teamB): bool
+    {
+        if ($requiredPlayers % 2 !== 0) {
+            return false;
+        }
+
+        if (count($players) !== $requiredPlayers) {
+            return false;
+        }
+
         $bestDiff = PHP_INT_MAX;
         $bestTeamA = [];
         $bestTeamB = [];
 
-        foreach ($this->combinations($players, ($requiredPlayers / 2)) as $teamA)
-        {
-
-            // Équipe B = joueurs restants
-            $teamB = array_udiff(
+        foreach ($this->combinations($players, (int) ($requiredPlayers / 2)) as $candidateTeamA) {
+            $candidateTeamB = array_udiff(
                 $players,
-                $teamA,
+                $candidateTeamA,
                 fn($a, $b) => $a->id <=> $b->id
             );
 
-            // Sommes des ranks
-            $sumA = array_sum(array_map(fn($p) => $p->rank, $teamA));
-            $sumB = array_sum(array_map(fn($p) => $p->rank, $teamB));
+            $sumA = array_sum(array_map(fn($p) => (int) ($p->rank ?? 0), $candidateTeamA));
+            $sumB = array_sum(array_map(fn($p) => (int) ($p->rank ?? 0), $candidateTeamB));
 
             $diff = abs($sumA - $sumB);
 
-            if ($diff < $bestDiff)
-            {
+            if ($diff < $bestDiff) {
                 $bestDiff = $diff;
-                $bestTeamA = $teamA;
-                $bestTeamB = $teamB;
+                $bestTeamA = $candidateTeamA;
+                $bestTeamB = $candidateTeamB;
             }
         }
 
-        $teamA = $bestTeamA;
-        $teamB = $bestTeamB;
+        if (empty($bestTeamA) || empty($bestTeamB)) {
+            return false;
+        }
+
+        $teamA = array_values($bestTeamA);
+        $teamB = array_values($bestTeamB);
 
         return true;
     }
 
-    private function combinations($items, int $k): array
+    private function combinations(array $items, int $k): array
     {
-        if ($k === 0)
-        {
+        if ($k === 0) {
             return [[]];
         }
 
-        if (count($items) < $k)
-        {
+        if (count($items) < $k) {
             return [];
         }
 
         $result = [];
+        $items = array_values($items);
 
         $first = array_shift($items);
 
-        // Inclure le premier élément
-        foreach ($this->combinations($items, $k - 1) as $combo)
-        {
+        foreach ($this->combinations($items, $k - 1) as $combo) {
             $result[] = array_merge([$first], $combo);
         }
 
-        // Exclure le premier élément
-        foreach ($this->combinations($items, $k) as $combo)
-        {
+        foreach ($this->combinations($items, $k) as $combo) {
             $result[] = $combo;
         }
 
         return $result;
-    }
-    private function countRequiredPlayers($format)
-    {
-        $count = intval($format[0]) + intval($format[1]);
-        return $count;
     }
 }

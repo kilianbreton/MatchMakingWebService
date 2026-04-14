@@ -30,18 +30,18 @@ Route::middleware('auth.server')->group(function () {
     });
     Route::post('/queue/add', function (Illuminate\Http\Request $request, QueueService $qs) {
         $queue = $request->input('queue');
-        $player = $request->input('player');
-        $nickname = $request->input('login');
-        $nickname = isset($nickname) ? $nickname : $player;
+        $login = $request->input('login');
+        $nickname = $request->input('nickname');
+        $nickname = isset($nickname) ? $nickname : $login;
     
-        if (!$queue || !$player) {
+        if (!$queue || !$login) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Missing queue or player'
             ], 400);
         }
     
-        return $qs->addPlayer($queue, $player, $nickname);
+        return $qs->addPlayer($queue, $login, $nickname);
     });
     
     Route::post('/queue/remove', function (Illuminate\Http\Request $request, QueueService $qs) {
