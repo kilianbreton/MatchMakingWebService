@@ -43,7 +43,10 @@ class Matche extends Model
             ->wherePivot('team', 2);
     }
     
-
+    public function gamemode()
+    {
+        return $this->belongsTo(GameMode::class, 'gamemodeid');
+    }
     public function server()
     {
         return $this->belongsTo(Server::class, 'serverid');

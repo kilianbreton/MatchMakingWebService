@@ -6,3 +6,9 @@ import initDropdowns from './utils/dropdown';
 document.addEventListener('DOMContentLoaded', () => {
     initDropdowns();
 });
+
+import './pages/home';
+
+document.addEventListener('DOMContentLoaded', () => {
+    initDropdowns();
+});

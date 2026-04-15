@@ -224,6 +224,7 @@ class StatisticsController extends Controller
                 'winner' => $match->winner,
                 'server' => $server->login,
                 'mapuid' => $match->mapuid,
+                'updated_at' => optional($match->updated_at)->toIso8601String(),
             ]
         ));
 
