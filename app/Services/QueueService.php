@@ -14,6 +14,13 @@ use Illuminate\Support\Facades\Redis;
 
 class QueueService
 {
+
+    public function __construct(private PlayerService $playerService)
+    {
+
+    }
+
+
     private function normalizeQueue(string $queue): string
     {
         return strtolower(trim($queue));
@@ -55,13 +62,8 @@ class QueueService
             ], 404);
         }
 
-        Player::updateOrCreate(
-            ['login' => $login],
-            [
-                'name' => $nickname !== '' ? $nickname : $login,
-                'updated_at' => now(),
-            ]
-        );
+        $this->playerService->ensurePlayerExists($login, $nickname);
+        
 
         $allQueues = GameMode::pluck('name');
 
@@ -188,7 +190,7 @@ class QueueService
         $selectedPlayers = array_slice($players, 0, $requiredPlayers);
         $selectedLogins = array_column($selectedPlayers, 'login');
 
-        $thresholdTime = now()->subMinutes(10);
+        $thresholdTime = now()->subMinutes(10000);
 
         $availableServer = Server::where('gamemode', $gamemode->id)
             ->where('latestping', '>=', $thresholdTime)
@@ -267,7 +269,7 @@ class QueueService
     private function countRequiredPlayers(string $gamemodeName): int
     {
         return match (strtolower($gamemodeName)) {
-            'elite' => 2,
+            'elite' => 6,
             'siege' => 4,
             default => 2,
         };
@@ -294,8 +296,8 @@ class QueueService
                 fn($a, $b) => $a->id <=> $b->id
             );
 
-            $sumA = array_sum(array_map(fn($p) => (int) ($p->rank ?? 0), $candidateTeamA));
-            $sumB = array_sum(array_map(fn($p) => (int) ($p->rank ?? 0), $candidateTeamB));
+            $sumA = array_sum(array_map(fn($p) => (int) ($p->ranking ?? 0), $candidateTeamA));
+            $sumB = array_sum(array_map(fn($p) => (int) ($p->ranking ?? 0), $candidateTeamB));
 
             $diff = abs($sumA - $sumB);
 

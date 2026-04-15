@@ -20,16 +20,21 @@ class Player extends Authenticatable
         'login',
         'name',
         'location',
-        'rank',
         'token',
         'refresh',
     ];
 
+
+    public function rankings()
+    {
+        return $this->hasMany(Ranking::class, 'playerid');
+    }
+    
     public function matches()
     {
         return $this->belongsToMany(Matche::class, 'matchplayers')
-                    ->withPivot('team', 'playorder', 'missing', 'replaced')
-                    ->withTimestamps();
+            ->withPivot('team', 'playorder', 'missing', 'replaced')
+            ->withTimestamps();
     }
 
     /**

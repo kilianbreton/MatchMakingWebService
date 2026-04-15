@@ -9,6 +9,7 @@ use App\Http\Controllers\ServerController;
 use App\Models\player;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\StatisticsController;
 
 Route::get('/', [MatchController::class, 'index']);
 
@@ -28,6 +29,8 @@ Route::get('/auth/maniaplanet/callback', [ManiaplanetAuthController::class, 'cal
 Route::get('/queues', [QueuePageController::class, 'index'])
     ->name('queues.index');
 
+Route::get('/statistics/{gamemode:name}', [StatisticsController::class, 'show'])
+    ->name('statistics.show');
 
 Route::post('/logout', function ()
 {

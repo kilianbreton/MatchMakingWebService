@@ -4,7 +4,7 @@ use App\Http\Controllers\MatchMakingLobbyController;
 use App\Http\Controllers\MatchMakingMatchController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\ServerAuthController;
-use App\Http\Controllers\StatsController;
+use App\Http\Controllers\StatisticsController;
 use App\Services\QueueService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -58,7 +58,7 @@ Route::middleware('auth.server')->group(function () {
         return $qs->removePlayer($queue, $player);
     });
     Route::post('/match/map', [MatchMakingMatchController::class, 'setMap']);
-    Route::post('/match/stats', [StatsController::class, 'store']);
+    Route::post('/match/stats', [StatisticsController::class, 'store']);
 });
 
 

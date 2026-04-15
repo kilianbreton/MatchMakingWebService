@@ -1,30 +1,39 @@
 <nav class="navbar">
     <div class="navbar-left">
-        <a href="/" class="nav-link">Home</a>
-        <a href="/queues" class="nav-link">Queues</a>
-        <a href="/statistics" class="nav-link">Statistics</a>
+        <a href="/" class="nav-link {{ request()->is('/') ? 'active' : '' }}">Home</a>
+        <a href="{{ route('queues.index') }}" class="nav-link {{ request()->routeIs('queues.*') ? 'active' : '' }}">Queues</a>
+
+        <div class="nav-dropdown">
+            <button class="nav-link dropdown-toggle">
+                Statistics
+            </button>
+
+            <div class="dropdown-menu">
+                @foreach($navbarGamemodes as $mode)
+                    <a href="{{ route('statistics.show', $mode) }}">
+                        {{ $mode->name }}
+                    </a>
+                @endforeach
+            </div>
+        </div>
     </div>
 
     <div class="navbar-right">
         @auth
-        <div class="nav-dropdown" id="userDropdown">
-            @php
-                $nickname = auth()->user()->name ?? auth()->user()->login;
-                $nickname = App\Services\TmNick::toHtml($nickname);
-            @endphp
-            <a class="nav-button nav-user-btn" id="dropdownToggle">
-                {!! $nickname !!}
-            </a>
-        
-            <div class="dropdown-menu" id="dropdownMenu">
-                <a href="/profile">Profile</a>
-        
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit">Logout</button>
-                </form>
+            <div class="nav-dropdown">
+                <button class="nav-button nav-user-btn dropdown-toggle">
+                    {!! App\Services\TmNick::toHtml(auth()->user()->name ?? auth()->user()->login) !!}
+                </button>
+
+                <div class="dropdown-menu">
+                    <a href="{{ route('profile') }}">Profile</a>
+
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit">Logout</button>
+                    </form>
+                </div>
             </div>
-        </div>
         @else
             <a href="{{ route('maniaplanet.redirect') }}" class="nav-button">
                 Connection
@@ -32,26 +41,3 @@
         @endauth
     </div>
 </nav>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const toggle = document.getElementById('dropdownToggle');
-        const menu = document.getElementById('dropdownMenu');
-    
-        if (!toggle || !menu) return;
-    
-        toggle.addEventListener('click', function (e) {
-            e.stopPropagation();
-            menu.classList.toggle('show');
-        });
-    
-        // Ferme si clic ailleurs
-        document.addEventListener('click', function () {
-            menu.classList.remove('show');
-        });
-    
-        // Empêche fermeture si clic dans le menu
-        menu.addEventListener('click', function (e) {
-            e.stopPropagation();
-        });
-    });
-    </script>

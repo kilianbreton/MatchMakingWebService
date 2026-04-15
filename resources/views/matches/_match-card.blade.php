@@ -1,5 +1,6 @@
 @php
     $scores = explode('-', $match->score);
+    use App\Services\TmNick;
 @endphp
 <div class="match-card">
     <div class="match-card-header">
@@ -17,7 +18,7 @@
             <div class="team-title">Blue Team</div>
             <div class="team-players">
                 @foreach($match->playersA as $player)
-                    <div class="player-name">{{ $player->name ?: $player->login }}</div>
+                    <div class="player-name">{!! TmNick::toHtml($player->name ?: $player->login) !!}</div>
                 @endforeach
             </div>
         </div>
@@ -44,7 +45,7 @@
             <div class="team-title">Red Team</div>
             <div class="team-players">
                 @foreach($match->playersB as $player)
-                    <div class="player-name">{{ $player->name ?: $player->login }}</div>
+                    <div class="player-name">{!! TmNick::toHtml($player->name ?: $player->login) !!}</div>
                 @endforeach
             </div>
         </div>

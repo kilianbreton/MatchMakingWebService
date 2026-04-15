@@ -20,6 +20,9 @@ class GameMode extends Model
         'matchscript',
     ];
 
-   
+    public function rankings()
+    {
+        return $this->hasMany(Ranking::class, 'gamemodeid');
+    }
   
 }

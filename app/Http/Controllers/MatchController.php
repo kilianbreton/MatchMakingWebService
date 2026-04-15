@@ -10,7 +10,7 @@ class MatchController extends Controller
     {
         // Récupère les matchs en cours 
         $matches = Matche::where('finished', 0)
-        ->with(['playersA', 'playersB', 'server'])
+        ->with(['playersA', 'playersB', 'server', 'gamemode'])
         ->get();
         return view('matches.index', compact('matches'));
     }

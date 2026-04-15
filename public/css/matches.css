@@ -293,19 +293,23 @@ body {
     position: relative;
 }
 
+.nav-dropdown {
+    position: relative;
+}
+
 .dropdown-menu {
     position: absolute;
-    right: 0;
-    top: 110%;
+    top: 120%;
+    left: 0;
     background: #0f172a;
     border-radius: 10px;
     padding: 10px;
-    min-width: 160px;
+    min-width: 120px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-
     display: none;
     flex-direction: column;
     gap: 6px;
+    z-index: 200;
 }
 
 .dropdown-menu.show {
@@ -319,11 +323,11 @@ body {
     padding: 10px;
     text-align: left;
     color: #e8eefc;
+    text-decoration: none;
+    border-radius: 6px;
     background: none;
     border: none;
-    border-radius: 6px;
     cursor: pointer;
-    font-size: 0.95rem;
 }
 
 .dropdown-menu a:hover,
@@ -647,4 +651,17 @@ body {
 .queue-empty {
     color: #9db0d1;
     font-size: 0.98rem;
+}
+
+.stats-grid {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+.align-right {
+    text-align: right;
 }
