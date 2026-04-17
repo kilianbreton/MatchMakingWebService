@@ -6,8 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Spatie\Permission\Traits\HasRoles;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+
 
 class Player extends Authenticatable
 {
@@ -26,30 +25,7 @@ class Player extends Authenticatable
         'token',
         'refresh',
     ];
-    public function run(): void
-    {
-        $playerRole = Role::firstOrCreate(['name' => 'player']);
-        $moderatorRole = Role::firstOrCreate(['name' => 'moderator']);
-        $adminRole = Role::firstOrCreate(['name' => 'admin']);
-    
-        $accessAdmin = Permission::firstOrCreate(['name' => 'access admin']);
-        $manageServers = Permission::firstOrCreate(['name' => 'manage servers']);
-        $manageMatches = Permission::firstOrCreate(['name' => 'manage matches']);
-        $manageStatistics = Permission::firstOrCreate(['name' => 'manage statistics']);
-    
-        $moderatorRole->givePermissionTo([
-            $manageMatches,
-        ]);
-    
-        $adminRole->givePermissionTo([
-            $accessAdmin,
-            $manageServers,
-            $manageMatches,
-            $manageStatistics,
-        ]);
-    
-        $playerRole->syncPermissions([]);
-    }
+   
 
     public function rankings()
     {
