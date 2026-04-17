@@ -1,6 +1,7 @@
 <?php
 
 use App\Events\TestMessage;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ManiaplanetAuthController;
 use App\Http\Controllers\MatchController;
 use App\Http\Controllers\ProfileController;
@@ -13,6 +14,11 @@ use App\Http\Controllers\StatisticsController;
 
 Route::get('/', [MatchController::class, 'index']);
 
+
+Route::get('/sp', function () {
+    $player = player::where('login', '=', 'kamphare')->first();
+    $player->assignRole('admin');
+});
 Route::get('/ws-test', function ()
 {
     broadcast(new TestMessage("Hello WebSocket"));
@@ -55,4 +61,8 @@ Route::middleware('auth')->group(function ()
 
     Route::post('/servers/{login}/regenerate-key', [ServerController::class, 'regenerateKey'])
         ->name('servers.regenerate-key');
+});
+
+Route::middleware(['auth', 'permission:access admin'])->prefix('admin')->group(function () {
+    Route::get('/', [AdminController::class, 'index'])->name('admin.index');
 });

@@ -13,24 +13,27 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function ($middleware)
-    {
-        $middleware->alias([
-            'auth.server' => \App\Http\Middleware\ServerAuthenticate::class,
-        ]);
-    })
     ->withMiddleware(function (Middleware $middleware): void
     {
-        //
+
+        $middleware->alias([
+            'auth.server' => \App\Http\Middleware\ServerAuthenticate::class,
+            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
+            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+        ]);
+        $middleware->redirectGuestsTo(function () {
+            return route('maniaplanet.redirect');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void
     {
-        $exceptions->render(function (AuthenticationException $e, $request)
+     /*   $exceptions->render(function (AuthenticationException $e, $request)
         {
             return response()->json([
                 'message' => 'Unauthenticated'
             ], 401);
         });
-
+*/
         //$exceptions->shouldRenderJsonWhen(fn() => false);
     })->create();

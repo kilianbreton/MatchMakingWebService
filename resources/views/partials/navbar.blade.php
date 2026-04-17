@@ -16,6 +16,9 @@
                 @endforeach
             </div>
         </div>
+        @can('access admin')
+            <a class="nav-link" href="{{ route('admin.index') }}">Administration</a>
+        @endcan
     </div>
 
     <div class="navbar-right">
