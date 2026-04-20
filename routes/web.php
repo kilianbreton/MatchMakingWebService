@@ -11,6 +11,7 @@ use App\Models\player;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\StatisticsController;
+use App\Http\Controllers\AdminPlayerController;
 
 Route::get('/', [MatchController::class, 'index']);
 
@@ -63,6 +64,21 @@ Route::middleware('auth')->group(function ()
         ->name('servers.regenerate-key');
 });
 
-Route::middleware(['auth', 'permission:access admin'])->prefix('admin')->group(function () {
-    Route::get('/', [AdminController::class, 'index'])->name('admin.index');
-});
+Route::middleware(['auth', 'permission:access admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+        Route::get('/', fn () => view('admin.dashboard'))->name('dashboard');
+
+        Route::get('/matches', fn () => view('admin.matches.index'))->name('matches');
+        Route::get('/queues', fn () => view('admin.queues.index'))->name('queues');
+        Route::get('/servers', fn () => view('admin.servers.index'))->name('servers');
+        
+        
+        Route::get('/players', [AdminPlayerController::class, 'index'])->name('players');
+        Route::post('/players/{player}/ban', [AdminPlayerController::class, 'ban'])->name('players.ban');
+        Route::post('/players/{player}/unban', [AdminPlayerController::class, 'unban'])->name('players.unban');
+        Route::post('/players/{player}/mute', [AdminPlayerController::class, 'mute'])->name('players.mute');
+        Route::post('/players/{player}/unmute', [AdminPlayerController::class, 'unmute'])->name('players.unmute');
+    });

@@ -24,9 +24,40 @@ class Player extends Authenticatable
         'location',
         'token',
         'refresh',
+        'is_banned',
+        'banned_until',
+        'ban_reason',
+        'is_muted',
+        'muted_until',
+        'mute_reason',
+    ];
+
+    protected $casts = [
+        'is_banned' => 'boolean',
+        'is_muted' => 'boolean',
+        'banned_until' => 'datetime',
+        'muted_until' => 'datetime',
     ];
    
+    public function getBanActiveAttribute(): bool
+    {
+        if (!$this->is_banned) {
+            return false;
+        }
+    
+        return $this->banned_until === null || $this->banned_until->isFuture();
+    }
+    
+    public function getMuteActiveAttribute(): bool
+    {
+        if (!$this->is_muted) {
+            return false;
+        }
+    
+        return $this->muted_until === null || $this->muted_until->isFuture();
+    }
 
+    
     public function rankings()
     {
         return $this->hasMany(Ranking::class, 'playerid');
